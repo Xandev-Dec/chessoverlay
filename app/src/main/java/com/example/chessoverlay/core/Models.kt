@@ -35,6 +35,15 @@ sealed interface Score {
         is Mate -> if (moves > 0) "M$moves" else "-M${-moves}"
     }
 
+    /**
+     * Perkiraan peluang menang PUTIH (0..100) dari skor posisi, memakai kurva yang sama dengan Lichess.
+     * Peluang hitam = 100 - nilai ini. (Remis tidak dimodelkan terpisah.)
+     */
+    fun whiteWinPercent(): Double = when (this) {
+        is Mate -> if (moves > 0) 100.0 else 0.0
+        is Cp -> 50.0 + 50.0 * (2.0 / (1.0 + Math.exp(-0.00368208 * centipawns)) - 1.0)
+    }
+
     /** Nilai -1..1 untuk bar evaluasi (perspektif putih). */
     fun barValue(): Float = when (this) {
         is Mate -> if (moves > 0) 1f else -1f

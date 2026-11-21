@@ -33,6 +33,8 @@ class OverlayView(context: Context) : View(context) {
         set(value) { field = value; invalidate() }
     var statusText: String = ""
         set(value) { field = value; invalidate() }
+    var whiteToMove: Boolean = true
+        set(value) { field = value; invalidate() }
     var calibrating: Boolean = false
         set(value) { field = value; tapPoints.clear(); invalidate() }
 
@@ -58,6 +60,23 @@ class OverlayView(context: Context) : View(context) {
         color = Color.WHITE
         textSize = 13f * density
         setShadowLayer(3f * density, 0f, 0f, Color.BLACK)
+    }
+    private val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = Color.argb(205, 18, 18, 18)
+    }
+    private val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = 14f * density
+        isFakeBoldText = true
+    }
+    private val subPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = 11f * density
+        color = Color.argb(230, 220, 220, 220)
+    }
+    private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = Color.argb(70, 255, 255, 255)
+        strokeWidth = 1f * density
     }
     private val edgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -85,6 +104,11 @@ class OverlayView(context: Context) : View(context) {
 
         canvas.drawRect(board, edgePaint)
         val sq = board.width() / 8f
+        // Grid tipis: bantu memastikan batas papan pas (garis harus sejajar kotak sebenarnya).
+        for (i in 1 until 8) {
+            canvas.drawLine(board.left + i * sq, board.top, board.left + i * sq, board.bottom, gridPaint)
+            canvas.drawLine(board.left, board.top + i * sq, board.right, board.top + i * sq, gridPaint)
+        }
 
         // Panah dari yang terlemah dulu agar langkah terbaik tampil di atas.
         val top = lines.sortedBy { it.multiPv }.take(arrowColors.size)
@@ -146,18 +170,80 @@ class OverlayView(context: Context) : View(context) {
     }
 
     private fun drawInfo(canvas: Canvas, board: RectF, top: List<PvLine>) {
-        var y = max(board.top - 8f * density, 24f * density)
-        val x = board.left
-        val rows = top.reversed()  // dari bawah ke atas agar urutan 1,2,3 terbaca dari atas
-        for (line in rows) {
-            val moves = line.moves.take(5).joinToString(" ")
-            val color = arrowColors[line.multiPv - 1]
-            textPaint.color = color or (0xFF shl 24)
-            canvas.drawText("${line.multiPv}. ${line.score.display()}  d${line.depth}  $moves", x, y, textPaint)
-            y -= 18f * density
+        val rows = top.sortedBy { it.multiPv }
+        val gap = 6f * density
+
+        if (rows.isEmpty()) {
+            if (statusText.isNotEmpty()) drawStatus(canvas, board, board.bottom + gap)
+            return
         }
+
+        val pad = 8f * density
+        val titleH = 20f * density
+        val subH = 16f * density
+        val headerH = 18f * density
+        val panelH = pad * 2 + headerH + rows.size * (titleH + subH)
+        val panelW = board.width()
+
+        val above = board.top - panelH - gap >= 0f
+        val panelTop = if (above) board.top - panelH - gap else board.bottom + gap
+        val panel = RectF(board.left, panelTop, board.left + panelW, panelTop + panelH)
+        canvas.drawRoundRect(panel, 10f * density, 10f * density, panelPaint)
+
+        val textW = panelW - pad * 2
+        var y = panel.top + pad + 12f * density
+        val turn = if (whiteToMove) "Putih" else "Hitam"
+        subPaint.color = Color.argb(255, 235, 235, 235)
+        canvas.drawText(fit("Giliran $turn  -  kedalaman ${rows[0].depth}", subPaint, textW), panel.left + pad, y, subPaint)
+        subPaint.color = Color.argb(230, 200, 200, 200)
+        y += headerH - 4f * density
+
+        for (line in rows) {
+            val color = arrowColors[(line.multiPv - 1).coerceIn(0, arrowColors.lastIndex)] or (0xFF shl 24)
+            val move = line.moves.firstOrNull()
+            val white = line.score.whiteWinPercent()
+            val wTxt = Math.round(white).toInt()
+            val bTxt = 100 - wTxt
+
+            y += titleH - 4f * density
+            titlePaint.color = color
+            val moveTxt = move?.let { "${it.from}-${it.to}${it.promotion ?: ""}" } ?: "?"
+            canvas.drawText(
+                fit("${line.multiPv}. $moveTxt   Putih $wTxt%  |  Hitam $bTxt%", titlePaint, textW),
+                panel.left + pad, y, titlePaint,
+            )
+
+            y += subH - 2f * density
+            val pv = line.moves.take(6).joinToString(" ")
+            canvas.drawText(
+                fit("Eval ${line.score.display()}  -  $pv", subPaint, textW),
+                panel.left + pad, y, subPaint,
+            )
+            y += 6f * density - 4f * density
+        }
+
+        if (statusText.isNotEmpty()) {
+            val statusTop = if (above) board.bottom + gap else panel.bottom + gap
+            drawStatus(canvas, board, statusTop)
+        }
+    }
+
+    private fun drawStatus(canvas: Canvas, board: RectF, top: Float) {
+        val pad = 8f * density
+        val h = 22f * density
+        val r = RectF(board.left, top, board.right, top + h)
+        canvas.drawRoundRect(r, 8f * density, 8f * density, panelPaint)
         textPaint.color = Color.WHITE
-        if (statusText.isNotEmpty()) canvas.drawText(statusText, x, board.bottom + 20f * density, textPaint)
+        textPaint.textSize = 12f * density
+        canvas.drawText(fit(statusText, textPaint, r.width() - pad * 2), r.left + pad, r.bottom - 6f * density, textPaint)
+        textPaint.textSize = 13f * density
+    }
+
+    /** Potong teks dengan "..." bila melebihi lebar. */
+    private fun fit(text: String, paint: Paint, maxW: Float): String {
+        if (paint.measureText(text) <= maxW) return text
+        val n = paint.breakText(text, true, maxW - paint.measureText("..."), null)
+        return text.take(n.coerceAtLeast(0)) + "..."
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {

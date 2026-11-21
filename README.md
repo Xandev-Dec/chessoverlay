@@ -39,7 +39,8 @@ MainActivity ──(izin MediaProjection)──► OverlayService (foreground)
 - Belum dikompilasi/diuji di sini (tidak ada Android SDK/jaringan di sandbox) - kemungkinan perlu perbaikan kecil saat build pertama.
 - Overlay ikut tertangkap MediaProjection, jadi disembunyikan ~90 ms tiap siklus capture (500 ms); ini bisa terlihat berkedip tipis. Geser panel kontrol keluar dari area papan.
 - Hak rokade disimpulkan dari posisi raja/benteng; en passant tidak dideteksi.
-- Pengenalan bergantung pada tema papan yang sama dengan saat "Belajar". Ganti tema -> belajar ulang (butuh posisi awal).
+- Pengenalan memakai bentuk (tepi) bidak, jadi sorotan langkah terakhir tidak mengganggu. Tema bidak baru perlu "Belajar" ulang pada posisi awal. Batas papan harus pas (meleset >~10 px bisa menyebabkan salah baca): gunakan garis grid tipis di overlay untuk memeriksanya, dan ketuk ulang "Papan" bila miring.
+- Persentase menang dihitung dari skor engine dengan kurva Lichess (perkiraan, bukan hasil pasti).
 - Notasi langkah ditampilkan dalam UCI (`e2e4`). Untuk SAN tambahkan library aturan catur (mis. chesslib).
 
 ## Catatan etika

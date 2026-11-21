@@ -280,9 +280,9 @@ class OverlayService : Service() {
 
                 if (learnRequested) {
                     learnRequested = false
-                    val ok = recognizer.learnFromStart(samples, whiteAtBottom)
+                    val error = recognizer.learnFromStart(samples, whiteAtBottom)
                     tracker.reset()
-                    toast(if (ok) "Berhasil dipelajari. Analisis dimulai." else "Gagal: pastikan posisi awal terlihat jelas.")
+                    toast(error ?: "Berhasil dipelajari. Analisis dimulai.")
                     continue
                 }
                 if (!recognizer.isCalibrated) {
@@ -292,7 +292,7 @@ class OverlayService : Service() {
 
                 val pieces = recognizer.recognize(samples, whiteAtBottom)
                 if (pieces == null) {
-                    overlay.postStatus("Papan tidak terbaca (animasi / tema berbeda?)")
+                    overlay.postStatus("Papan belum terbaca - cek garis grid pas dengan papan (atur ulang 'Papan'), atau tunggu animasi")
                     continue
                 }
                 val fen = tracker.submit(pieces)
@@ -355,7 +355,11 @@ class OverlayService : Service() {
             }
             e.lines.collectLatest { map ->
                 val list: List<PvLine> = map.values.sortedBy { it.multiPv }
-                main.post { overlay.lines = list }
+                val whiteTurn = tracker.whiteToMove
+                main.post {
+                    overlay.whiteToMove = whiteTurn
+                    overlay.lines = list
+                }
             }
         }
     }
