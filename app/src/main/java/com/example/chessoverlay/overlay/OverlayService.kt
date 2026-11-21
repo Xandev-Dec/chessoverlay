@@ -142,17 +142,18 @@ class OverlayService : Service() {
         }
         wm.addView(overlay, overlayParams(touchable = false))
 
+        val ov = overlay  // di dalam apply{}, "overlay" terbaca sebagai View.overlay
         controls = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setBackgroundColor(0xCC202020.toInt())
             addButton("Papan") {
-                overlay.calibrating = true
+                ov.calibrating = true
                 setOverlayTouchable(true)
             }
             addButton("Belajar") { learnRequested = true; toast("Mempelajari tampilan papan...") }
             addButton("Balik") {
                 whiteAtBottom = !whiteAtBottom
-                overlay.flipped = !whiteAtBottom
+                ov.flipped = !whiteAtBottom
                 tracker.reset()
                 savePrefs()
             }
@@ -165,7 +166,7 @@ class OverlayService : Service() {
                 paused = !paused
                 if (paused) engine?.stop()
                 tracker.reset()
-                overlay.statusText = if (paused) "Dijeda" else ""
+                ov.statusText = if (paused) "Dijeda" else ""
             }
             addButton("X") { stopSelf() }
         }
